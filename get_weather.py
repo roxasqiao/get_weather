@@ -10,7 +10,8 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 from datetime import timedelta
-import pyhdb
+import con_database
+import save_txt 
 
 def get_pro_url():
     province_grop={
@@ -52,9 +53,8 @@ def get_pro_url():
         print('\n'+each+' -->'+pro_url)
         wea_group=get_city_url(each,pro_url)
 
-
 def get_city_url(pro_name,pro_url):
-#     url='http://www.weather.com.cn/guangdong/index.shtml'
+#     url='http://www.weather.com.cn/henan/index.shtml'
     url=pro_url
     response=request.urlopen(url)
     html=response.read().decode('utf-8')
@@ -68,7 +68,7 @@ def get_city_url(pro_name,pro_url):
         end_2=each.find('</a>')
         city_url_7day=each[beg_1:end_1] #七天数据
         city_name=each[beg_2:end_2]
-#         print('\n'+city_name+'：'+city_url_7day)
+        print('\n'+city_name+'：'+city_url_7day)
         get_city_weather(pro_name,city_name,city_url_7day)
         
 def get_city_weather(pro_name,city_name,city_url_7day):
@@ -91,20 +91,24 @@ def get_city_weather(pro_name,city_name,city_url_7day):
     tem_low=re.findall(pattern3, str(content))
     tem_high=re.findall(pattern4, str(content))
     win=re.findall(pattern5, str(content))
-    
     wea_group=[]
-    for i in range(predays):
-        aDay = timedelta(days=i)
-        cadate=str(now+aDay)[0:10]
-        zdate=date[i][4:-5]
-        zwea=wea[i].split('">')[1].split('</p>')[0]
-        ztem=tem_low[i][6:-7]+'/'+tem_high[i][4:-4]
-        zwin=win[i][3:-4].replace('&lt;','')
-        lis=pro_name+','+city_name+','+cadate+','+zdate+','+zwea+','+ztem+','+zwin
-#         print(lis)
-        wea_group.append(lis)
-    hana_connection(wea_group)
-    save_txt(wea_group)
+    try:
+        for i in range(predays):
+            aDay = timedelta(days=i)
+            cadate=str(now+aDay)[0:10]
+            zdate=date[i][4:-5]
+            zwea=wea[i].split('">')[1].split('</p>')[0]
+            ztem=tem_low[i][6:-7]+'/'+tem_high[i][4:-4]
+            zwin=win[i][3:-4].replace('&lt;','')
+            lis=pro_name+','+city_name+','+cadate+','+zdate+','+zwea+','+ztem+','+zwin
+#             print(ztem)
+            wea_group.append(lis)
+    except Exception as e:
+         print("---异常-->"+str(e))
+         pass
+    con_database.mysql_connection(wea_group)
+#     save_txt.save_txt(wea_group)
+    
 def special_weather():
     print('\n-----special-----')
     get_city_weather('北京','北京','http://www.weather.com.cn/weather/101010100.shtml')
@@ -115,51 +119,12 @@ def special_weather():
     get_city_weather('香港','香港','http://www.weather.com.cn/weather/101320101.shtml')
     get_city_weather('澳门','澳门','http://www.weather.com.cn/weather/101330101.shtml')
 
-def hana_connection(wea_group):
-        conn = pyhdb.connect(host = ip,
-                                 port = prort,
-                                 user = "",
-                                 password = "")
-        cursor = conn.cursor()
-#         sql1="drop table config.CITY_WEATHER"
-#         sql2="create column table config.CITY_WEATHER(CITY NVARCHAR(25),DAY_ID NVARCHAR(10),DAY_DES nvarchar(25),ZWEA nvarchar(225),ZTEM nvarchar(25),ZWIN nvarchar(25))"
-        sql3="insert into config.CITY_WEATHER(PROVINCE,CITY, DAY_ID,DAY_DES,ZWEA,ZTEM,ZWIN) values(%s,%s,%s,%s,%s,%s,%s)"
-        try:
-#             cursor.execute(sql1)
-#             cursor.execute(sql2)
-            i=len(wea_group)
-            for num in range(i):
-                co1=wea_group[num].split(',')[0]
-                co2=wea_group[num].split(',')[1]
-                co3=wea_group[num].split(',')[2]
-                co4=wea_group[num].split(',')[3]
-                co5=wea_group[num].split(',')[4]
-                co6=wea_group[num].split(',')[5]
-                co7=wea_group[num].split(',')[6]
-                par=co1,co2,co3,co4,co5,co6,co7
-                print(par)
-                cursor.execute(sql3,par)
-            conn.commit()
-#             print( '----sql执行成功----')
-        except Exception as e:
-            print("----sql异常-->"+str(e))
-            conn.rollback()
-        finally:
-            # 最终关闭数据库连接
-            cursor.close()     
- 
-def save_txt(wea_group):
-        i=len(wea_group)
-#         print('总条数：',i)
-        for t in wea_group:
-            my_file=open('E:\\weather_date.txt','a')
-            my_file.write('\n'+t)
-#             print(t)
-        my_file.close()
-        
+
 if __name__ == '__main__':   
+#     f=open('E:\\weather_date01.txt','w+')
+#     f.truncate()
+#     f.close()
     special_weather()
     get_pro_url()
-    
 
 
